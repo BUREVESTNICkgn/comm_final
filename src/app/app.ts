@@ -1,6 +1,7 @@
 import { Component, Signal, computed, effect, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClientModule } from '@angular/common/http';
 
 interface User {
   id: number;
@@ -52,12 +53,12 @@ interface StoredState {
 
 @Component({
   selector: 'app-root',
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, HttpClientModule],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
 export class App {
-  readonly title = 'Computer Market — фронтенд-прототип';
+  readonly title = 'Computer Market';
   readonly categories = [
     'Ноутбуки',
     'Смартфоны',
@@ -73,6 +74,11 @@ export class App {
   protected readonly orders = signal<Order[]>([]);
   protected currentUser = signal<User | null>(null);
   protected cart = signal<CartItem[]>([]);
+  protected selectedListing = signal<Listing | null>(null);
+  protected backendReady = signal(false);
+  protected bannerMessage = signal(
+    'Локальное хранилище активно. Для синхронизации с MySQL поднимите Node API.'
+  );
 
   protected authForm = { email: '', password: '', name: '' };
   protected newListing: Partial<Listing> = {
@@ -83,7 +89,8 @@ export class App {
     address: '',
     allowDelivery: true,
     pickupOnly: false,
-    deliveryCost: 0
+    deliveryCost: 0,
+    hidden: false
   };
   protected searchTerm = '';
   protected categoryFilter = '';
@@ -98,8 +105,7 @@ export class App {
 
     return this.listings().filter((listing) => {
       const matchesTerm =
-        listing.title.toLowerCase().includes(term) ||
-        listing.description.toLowerCase().includes(term);
+        listing.title.toLowerCase().includes(term) || listing.description.toLowerCase().includes(term);
       const matchesCategory = !category || listing.category === category;
       const canView = !listing.hidden || viewer?.role === 'admin' || viewer?.id === listing.ownerId;
       return matchesTerm && matchesCategory && canView;
@@ -108,6 +114,7 @@ export class App {
 
   constructor() {
     this.loadState();
+    this.tryBackendSync();
     effect(() => {
       this.persistState();
       this.heroStats.set({
@@ -202,30 +209,60 @@ export class App {
   }
 
   protected register(): void {
+    void this.registerAsync();
+  }
+
+  private async registerAsync(): Promise<void> {
     const { email, password, name } = this.authForm;
     if (!email || !password || !name) return;
     if (this.users().some((u) => u.email === email)) return;
     const user: User = { id: this.nextIds.user++, email, password, role: 'user', name };
-    this.users.update((list) => [...list, user]);
-    this.currentUser.set(user);
+    if (this.backendReady()) {
+      const created = await this.postJson<User>('/api/auth/register', { email, password, name });
+      if (created) {
+        this.currentUser.set(created);
+        await this.pullFromBackend();
+      }
+    } else {
+      this.users.update((list) => [...list, user]);
+      this.currentUser.set(user);
+    }
     this.authForm = { email: '', password: '', name: '' };
   }
 
   protected login(): void {
+    void this.loginAsync();
+  }
+
+  private async loginAsync(): Promise<void> {
     const { email, password } = this.authForm;
-    const match = this.users().find((u) => u.email === email && u.password === password);
-    if (match) {
-      this.currentUser.set(match);
-      this.authForm = { email: '', password: '', name: '' };
+    if (this.backendReady()) {
+      const match = await this.postJson<User>('/api/auth/login', { email, password });
+      if (match) {
+        this.currentUser.set(match);
+        this.authForm = { email: '', password: '', name: '' };
+        await this.pullFromBackend();
+      }
+    } else {
+      const match = this.users().find((u) => u.email === email && u.password === password);
+      if (match) {
+        this.currentUser.set(match);
+        this.authForm = { email: '', password: '', name: '' };
+      }
     }
   }
 
   protected logout(): void {
     this.currentUser.set(null);
     this.cart.set([]);
+    this.selectedListing.set(null);
   }
 
   protected addListing(): void {
+    void this.addListingAsync();
+  }
+
+  private async addListingAsync(): Promise<void> {
     const owner = this.currentUser();
     if (!owner) return;
     if (!this.newListing.title || !this.newListing.description || !this.newListing.address) return;
@@ -245,7 +282,12 @@ export class App {
       imageData: this.newListing.imageData
     };
 
-    this.listings.update((list) => [listing, ...list]);
+    if (this.backendReady()) {
+      await this.postJson('/api/listings', listing);
+      await this.pullFromBackend();
+    } else {
+      this.listings.update((list) => [listing, ...list]);
+    }
     this.resetListingForm();
   }
 
@@ -265,9 +307,7 @@ export class App {
   }
 
   protected toggleListingVisibility(listing: Listing): void {
-    this.listings.update((items) =>
-      items.map((l) => (l.id === listing.id ? { ...l, hidden: !l.hidden } : l))
-    );
+    void this.updateListing({ ...listing, hidden: !listing.hidden });
   }
 
   protected handleImageUpload(event: Event): void {
@@ -311,6 +351,10 @@ export class App {
   }
 
   protected placeOrder(): void {
+    void this.placeOrderAsync();
+  }
+
+  private async placeOrderAsync(): Promise<void> {
     const user = this.currentUser();
     if (!user || this.cart().length === 0) return;
     const order: Order = {
@@ -321,7 +365,12 @@ export class App {
       createdAt: new Date().toISOString(),
       note: this.orderNote
     };
-    this.orders.update((items) => [order, ...items]);
+    if (this.backendReady()) {
+      await this.postJson('/api/orders', { userId: user.id, items: this.cart(), note: this.orderNote });
+      await this.pullFromBackend();
+    } else {
+      this.orders.update((items) => [order, ...items]);
+    }
     this.cart.set([]);
     this.orderNote = '';
   }
@@ -334,20 +383,33 @@ export class App {
   }
 
   protected updateOrderStatus(orderId: number, status: Order['status']): void {
-    this.orders.update((items) => items.map((o) => (o.id === orderId ? { ...o, status } : o)));
+    if (this.backendReady()) {
+      void this.postJson(`/api/orders/${orderId}/status`, { status });
+      void this.pullFromBackend();
+    } else {
+      this.orders.update((items) => items.map((o) => (o.id === orderId ? { ...o, status } : o)));
+    }
   }
 
   protected setRole(userId: number, role: User['role']): void {
-    this.users.update((items) => items.map((u) => (u.id === userId ? { ...u, role } : u)));
-    if (this.currentUser()?.id === userId) {
-      const updated = this.users().find((u) => u.id === userId) ?? null;
-      this.currentUser.set(updated);
+    if (this.backendReady()) {
+      void this.postJson(`/api/users/${userId}/role`, { role }).then(() => this.pullFromBackend());
+    } else {
+      this.users.update((items) => items.map((u) => (u.id === userId ? { ...u, role } : u)));
+      if (this.currentUser()?.id === userId) {
+        const updated = this.users().find((u) => u.id === userId) ?? null;
+        this.currentUser.set(updated);
+      }
     }
   }
 
   protected deleteListing(id: number): void {
-    this.listings.update((items) => items.filter((l) => l.id !== id));
-    this.cart.update((items) => items.filter((i) => i.listingId !== id));
+    if (this.backendReady()) {
+      void this.deleteJson(`/api/listings/${id}`).then(() => this.pullFromBackend());
+    } else {
+      this.listings.update((items) => items.filter((l) => l.id !== id));
+      this.cart.update((items) => items.filter((i) => i.listingId !== id));
+    }
   }
 
   protected ownedListings(): Listing[] {
@@ -364,5 +426,89 @@ export class App {
     const base = this.forecastDays;
     const distanceBias = listing.deliveryCost > 1000 ? 1 : 0;
     return `${base + distanceBias}-4 дня`;
+  }
+
+  protected selectListing(listing: Listing): void {
+    this.selectedListing.set(listing);
+  }
+
+  private async updateListing(listing: Listing): Promise<void> {
+    if (this.backendReady()) {
+      await this.postJson(`/api/listings/${listing.id}`, listing);
+      await this.pullFromBackend();
+    } else {
+      this.listings.update((items) => items.map((l) => (l.id === listing.id ? listing : l)));
+    }
+  }
+
+  private async tryBackendSync(): Promise<void> {
+    if (!this.isBrowser()) return;
+    try {
+      const health = await fetch('/api/health');
+      if (health.ok) {
+        this.backendReady.set(true);
+        this.bannerMessage.set('Подключен REST API с MySQL (или резервным in-memory)');
+        await this.pullFromBackend();
+      }
+    } catch {
+      this.backendReady.set(false);
+    }
+  }
+
+  private async pullFromBackend(): Promise<void> {
+    try {
+      const [users, listings, orders] = await Promise.all([
+        this.getJson<User[]>('/api/users'),
+        this.getJson<Listing[]>('/api/listings'),
+        this.getJson<Order[]>(`/api/orders${this.currentUser()?.role === 'admin' ? '?admin=1' : ''}`)
+      ]);
+      if (users) this.users.set(users);
+      if (listings) this.listings.set(listings);
+      if (orders) this.orders.set(orders);
+      this.recalculateIds();
+    } catch {
+      // ignore
+    }
+  }
+
+  private recalculateIds(): void {
+    this.nextIds = {
+      user: (this.users().reduce((max, u) => Math.max(max, u.id), 0) || 0) + 1,
+      listing: (this.listings().reduce((max, l) => Math.max(max, l.id), 0) || 0) + 1,
+      order: (this.orders().reduce((max, o) => Math.max(max, o.id), 0) || 0) + 1
+    };
+  }
+
+  private async postJson<T>(url: string, body: any): Promise<T | null> {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) return null;
+      return (await res.json()) as T;
+    } catch {
+      return null;
+    }
+  }
+
+  private async deleteJson(url: string): Promise<boolean> {
+    try {
+      const res = await fetch(url, { method: 'DELETE' });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  private async getJson<T>(url: string): Promise<T | null> {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      return (await res.json()) as T;
+    } catch {
+      return null;
+    }
   }
 }

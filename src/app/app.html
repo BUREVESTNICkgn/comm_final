@@ -1,213 +1,451 @@
-<div class="page">
-  <header class="hero">
-    <div>
-      <p class="eyebrow">Фронтенд-прототип / SQLite в браузере</p>
-      <h1>{{ title }}</h1>
-      <p class="lede">
-        Магазин вычислительной техники «Компьютер» с каталогом, корзиной, заказами и админкой.
-        Данные сохраняются в localStorage (SQLite-подобный слой на фронте).
-      </p>
-      <div class="stats">
-        <div><span>{{ heroStats().users }}</span><small>пользователей</small></div>
-        <div><span>{{ heroStats().listings }}</span><small>объявлений</small></div>
-        <div><span>{{ heroStats().orders }}</span><small>заказов</small></div>
-      </div>
+<nav class="topbar shadow-sm">
+  <div class="container d-flex align-items-center justify-content-between py-2">
+    <div class="d-flex align-items-center gap-2">
+      <span class="brand">Computer Market</span>
+      <span class="pill" [class.bg-success-subtle]="backendReady()" [class.bg-warning-subtle]="!backendReady()">
+        {{ backendReady() ? 'REST + MySQL' : 'Локальное хранилище' }}
+      </span>
     </div>
-    <div class="cta">
-      <h3>Быстрый старт</h3>
-      <p>Admin: admin@computer.market / admin<br />User: demo@computer.market / demo</p>
-      <label>Прогноз дней доставки
-        <input type="number" [(ngModel)]="forecastDays" min="1" />
-      </label>
+    <div class="nav-links d-none d-md-flex">
+      <a href="#catalog">Каталог</a>
+      <a href="#sell">Мои объявления</a>
+      <a href="#cart">Корзина</a>
+      <a href="#orders">Заказы</a>
+      <a href="#admin" *ngIf="currentUser()?.role === 'admin'">Админ</a>
     </div>
-  </header>
+    <div class="d-flex gap-2 align-items-center">
+      <ng-container *ngIf="!currentUser(); else userMenu">
+        <a class="btn btn-outline-primary btn-sm" href="#auth">Войти</a>
+        <a class="btn btn-primary btn-sm" href="#auth">Регистрация</a>
+      </ng-container>
+      <ng-template #userMenu>
+        <span class="text-muted small">{{ currentUser()?.name }} ({{ currentUser()?.role }})</span>
+        <button class="btn btn-outline-secondary btn-sm" (click)="logout()">Выйти</button>
+      </ng-template>
+    </div>
+  </div>
+</nav>
 
-  <section class="card-grid">
-    <div class="card">
-      <h2>Регистрация</h2>
-      <label>Имя<input [(ngModel)]="authForm.name" placeholder="Имя" /></label>
-      <label>Email<input [(ngModel)]="authForm.email" placeholder="email" /></label>
-      <label>Пароль<input type="password" [(ngModel)]="authForm.password" /></label>
-      <button (click)="register()">Создать аккаунт</button>
-    </div>
-    <div class="card">
-      <h2>Авторизация</h2>
-      <label>Email<input [(ngModel)]="authForm.email" /></label>
-      <label>Пароль<input type="password" [(ngModel)]="authForm.password" /></label>
-      <button (click)="login()">Войти</button>
-      <p class="muted" *ngIf="currentUser()">Вы вошли как <strong>{{ currentUser()?.name }}</strong></p>
-      <button class="ghost" *ngIf="currentUser()" (click)="logout()">Выйти</button>
-    </div>
-    <div class="card" *ngIf="currentUser()">
-      <h2>Новая карточка товара</h2>
-      <div class="grid-2">
-        <label>Название<input [(ngModel)]="newListing.title" /></label>
-        <label>Категория
-          <select [(ngModel)]="newListing.category">
-            <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
-          </select>
-        </label>
+<header class="hero py-5" id="hero">
+  <div class="container">
+    <div class="row align-items-center g-4">
+      <div class="col-lg-6">
+        <p class="lead text-uppercase text-primary fw-semibold mb-2">Marketplace техники</p>
+        <h1 class="fw-bold mb-3">Быстрое размещение и покупка компьютерных товаров</h1>
+        <p class="text-muted mb-4">
+          Работаем на стекe MEAN: Angular + Node/Express REST, MySQL или in-memory запасной режим. Функции
+          доставки, самовывоза и управление заказами доступны из одного окна.
+        </p>
+        <div class="d-flex gap-3 flex-wrap">
+          <a class="btn btn-primary" href="#catalog">Открыть каталог</a>
+          <a class="btn btn-outline-primary" href="#sell" *ngIf="currentUser()">Разместить объявление</a>
+          <a class="btn btn-outline-secondary" href="#auth" *ngIf="!currentUser()">Войти в аккаунт</a>
+        </div>
       </div>
-      <label>Описание<textarea [(ngModel)]="newListing.description"></textarea></label>
-      <div class="grid-3">
-        <label>Цена, ₽<input type="number" min="0" [(ngModel)]="newListing.price" /></label>
-        <label>Адрес<input [(ngModel)]="newListing.address" /></label>
-        <label>Доставка, ₽<input type="number" min="0" [(ngModel)]="newListing.deliveryCost" /></label>
-      </div>
-      <div class="grid-3">
-        <label class="inline"><input type="checkbox" [(ngModel)]="newListing.allowDelivery" />Доставка</label>
-        <label class="inline"><input type="checkbox" [(ngModel)]="newListing.pickupOnly" />Самовывоз</label>
-        <label class="inline"><input type="checkbox" [(ngModel)]="newListing.hidden" />Скрыть объявление</label>
-      </div>
-      <label>Картинка<input type="file" accept="image/*" (change)="handleImageUpload($event)" /></label>
-      <button (click)="addListing()">Опубликовать</button>
-    </div>
-  </section>
-
-  <section class="card">
-    <div class="filters">
-      <input placeholder="Поиск" [(ngModel)]="searchTerm" />
-      <select [(ngModel)]="categoryFilter">
-        <option value="">Все категории</option>
-        <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
-      </select>
-    </div>
-    <div class="listings">
-      <article class="listing" *ngFor="let item of visibleListings()">
-        <div class="listing__header">
-          <div>
-            <p class="eyebrow">{{ item.category }}</p>
-            <h3>{{ item.title }}</h3>
-            <p class="muted">{{ item.address }}</p>
+      <div class="col-lg-6">
+        <div class="info-panel shadow-sm p-3 rounded">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted">Состояние данных</span>
+            <span class="badge" [class.text-bg-success]="backendReady()" [class.text-bg-warning]="!backendReady()">
+              {{ backendReady() ? 'Онлайн' : 'Автономно' }}
+            </span>
           </div>
-          <div class="price">{{ item.price | number : '1.0-0' }} ₽</div>
-        </div>
-        <p>{{ item.description }}</p>
-        <div class="preview" *ngIf="item.imageData"><img [src]="item.imageData" alt="" /></div>
-        <div class="flags">
-          <span *ngIf="item.allowDelivery">Доставка</span>
-          <span *ngIf="item.pickupOnly">Самовывоз</span>
-          <span>Доставка: {{ item.deliveryCost | number : '1.0-0' }} ₽</span>
-          <span>Прогноз: {{ deliveryForecast(item) }}</span>
-          <span *ngIf="item.hidden" class="warn">Скрыто</span>
-        </div>
-        <div class="actions">
-          <button (click)="addToCart(item)" [disabled]="!currentUser()">В корзину</button>
-          <button class="ghost" *ngIf="currentUser()?.id === item.ownerId || currentUser()?.role === 'admin'" (click)="toggleListingVisibility(item)">
-            {{ item.hidden ? 'Показать' : 'Скрыть' }}
-          </button>
-          <button class="ghost danger" *ngIf="currentUser()?.role === 'admin'" (click)="deleteListing(item.id)">Удалить</button>
-        </div>
-      </article>
-    </div>
-  </section>
-
-  <section class="card two-columns">
-    <div>
-      <h2>Корзина</h2>
-      <div *ngIf="cart().length === 0" class="muted">Пока пусто</div>
-      <div *ngFor="let item of cart()" class="cart-row">
-        <div>
-          <strong>{{ listingById(item.listingId)?.title }}</strong>
-          <p class="muted">Количество: {{ item.quantity }}</p>
-        </div>
-        <div class="price">{{ (listingById(item.listingId)?.price || 0) * item.quantity | number : '1.0-0' }} ₽</div>
-        <button class="ghost" (click)="removeFromCart(item.listingId)">Убрать</button>
-      </div>
-      <p class="total">Итого: {{ cartTotal() | number : '1.0-0' }} ₽</p>
-      <label>Комментарий к заказу<textarea [(ngModel)]="orderNote"></textarea></label>
-      <button (click)="placeOrder()" [disabled]="!currentUser() || cart().length === 0">Оформить</button>
-    </div>
-    <div>
-      <h2>Мои заказы</h2>
-      <div *ngFor="let order of userOrders()" class="order">
-        <header>
-          <strong>#{{ order.id }}</strong>
-          <span class="pill">{{ order.status }}</span>
-        </header>
-        <small class="muted">{{ order.createdAt | date:'medium' }}</small>
-        <ul>
-          <li *ngFor="let item of order.items">
-            {{ listingById(item.listingId)?.title }} × {{ item.quantity }}
-          </li>
-        </ul>
-        <p *ngIf="order.note" class="muted">{{ order.note }}</p>
-        <div class="status-row" *ngIf="currentUser()?.role === 'admin'">
-          <label>Статус
-            <select [ngModel]="order.status" (ngModelChange)="updateOrderStatus(order.id, $event)">
-              <option value="создано">создано</option>
-              <option value="в работе">в работе</option>
-              <option value="в доставке">в доставке</option>
-              <option value="завершено">завершено</option>
-              <option value="отменено">отменено</option>
-            </select>
-          </label>
+          <p class="mb-3 text-muted">{{ bannerMessage() }}</p>
+          <div class="row text-center g-3">
+            <div class="col">
+              <div class="metric">
+                <div class="metric-value">{{ heroStats().listings }}</div>
+                <div class="metric-label">Объявления</div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="metric">
+                <div class="metric-value">{{ heroStats().users }}</div>
+                <div class="metric-label">Пользователи</div>
+              </div>
+            </div>
+            <div class="col">
+              <div class="metric">
+                <div class="metric-value">{{ heroStats().orders }}</div>
+                <div class="metric-label">Заказы</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </section>
+  </div>
+</header>
 
-  <section class="card" *ngIf="currentUser()">
-    <h2>Мои объявления</h2>
-    <div class="owned" *ngIf="ownedListings().length; else noOwned">
-      <div *ngFor="let item of ownedListings()" class="owned__item">
-        <div>
-          <strong>{{ item.title }}</strong>
-          <p class="muted">{{ item.category }} · {{ item.price | number : '1.0-0' }} ₽</p>
+<section id="auth" class="section">
+  <div class="container">
+    <div class="section-title">
+      <h2>Быстрая регистрация и вход</h2>
+      <p class="text-muted">Регистрация открывает корзину, оформление заказов и создание объявлений.</p>
+    </div>
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Войти</h5>
+            <label class="form-label">Email</label>
+            <input class="form-control" [(ngModel)]="authForm.email" type="email" placeholder="user@mail.ru" />
+            <label class="form-label mt-3">Пароль</label>
+            <input class="form-control" [(ngModel)]="authForm.password" type="password" placeholder="••••••" />
+            <button class="btn btn-primary w-100 mt-3" (click)="login()">Войти</button>
+          </div>
         </div>
-        <div class="actions">
-          <button class="ghost" (click)="toggleListingVisibility(item)">{{ item.hidden ? 'Показать' : 'Скрыть' }}</button>
+      </div>
+      <div class="col-lg-6">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <h5 class="card-title">Регистрация</h5>
+            <label class="form-label">Имя</label>
+            <input class="form-control" [(ngModel)]="authForm.name" placeholder="Иван" />
+            <label class="form-label mt-3">Email</label>
+            <input class="form-control" [(ngModel)]="authForm.email" type="email" placeholder="you@example.com" />
+            <label class="form-label mt-3">Пароль</label>
+            <input class="form-control" [(ngModel)]="authForm.password" type="password" placeholder="••••••" />
+            <button class="btn btn-success w-100 mt-3" (click)="register()">Создать аккаунт</button>
+          </div>
         </div>
       </div>
     </div>
-    <ng-template #noOwned><p class="muted">Еще ничего не опубликовано.</p></ng-template>
-  </section>
+  </div>
+</section>
 
-  <section class="card" *ngIf="currentUser()?.role === 'admin'">
-    <h2>Админ-панель</h2>
-    <div class="admin-grid">
+<section id="catalog" class="section bg-light">
+  <div class="container">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
       <div>
-        <h3>Пользователи</h3>
-        <div *ngFor="let user of users()" class="admin-row">
-          <div>
-            <strong>{{ user.name }}</strong>
-            <p class="muted">{{ user.email }}</p>
-          </div>
-          <select [ngModel]="user.role" (ngModelChange)="setRole(user.id, $event)">
-            <option value="user">user</option>
-            <option value="admin">admin</option>
-          </select>
-        </div>
+        <h2 class="mb-1">Каталог объявлений</h2>
+        <p class="text-muted mb-0">Поиск, фильтрация и быстрый просмотр карточки товара.</p>
       </div>
-      <div>
-        <h3>Объявления</h3>
-        <div *ngFor="let item of listings()" class="admin-row">
-          <div>
-            <strong>{{ item.title }}</strong>
-            <p class="muted">{{ item.hidden ? 'Скрыто' : 'Видно всем' }}</p>
-          </div>
-          <div class="admin-actions">
-            <button class="ghost" (click)="toggleListingVisibility(item)">{{ item.hidden ? 'Показать' : 'Скрыть' }}</button>
-            <button class="ghost danger" (click)="deleteListing(item.id)">Удалить</button>
-          </div>
-        </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <input class="form-control" placeholder="Поиск по названию или описанию" [(ngModel)]="searchTerm" />
+        <select class="form-select" [(ngModel)]="categoryFilter">
+          <option value="">Все категории</option>
+          <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+        </select>
       </div>
-      <div>
-        <h3>Заказы</h3>
-        <div *ngFor="let order of orders()" class="admin-row">
-          <div>
-            <strong>Заказ #{{ order.id }}</strong>
-            <p class="muted">{{ order.items.length }} позиций</p>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-md-4" *ngFor="let listing of visibleListings()">
+        <div class="card listing-card h-100" (click)="selectListing(listing)">
+          <img *ngIf="listing.imageData" [src]="listing.imageData" class="card-img-top" alt="" />
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="badge text-bg-primary">{{ listing.category }}</span>
+              <span class="fw-bold">{{ listing.price | currency:'RUB':'symbol-narrow':'1.0-0' }}</span>
+            </div>
+            <h5 class="card-title">{{ listing.title }}</h5>
+            <p class="card-text text-muted text-truncate">{{ listing.description }}</p>
+            <div class="small text-muted">{{ listing.address }}</div>
+            <div class="d-flex gap-2 align-items-center mt-2">
+              <span class="badge text-bg-success" *ngIf="listing.allowDelivery">Доставка</span>
+              <span class="badge text-bg-secondary" *ngIf="listing.pickupOnly">Самовывоз</span>
+              <span class="badge text-bg-warning" *ngIf="listing.hidden">Скрыто</span>
+            </div>
           </div>
-          <select [ngModel]="order.status" (ngModelChange)="updateOrderStatus(order.id, $event)">
-            <option value="создано">создано</option>
-            <option value="в работе">в работе</option>
-            <option value="в доставке">в доставке</option>
-            <option value="завершено">завершено</option>
-            <option value="отменено">отменено</option>
-          </select>
+          <div class="card-footer d-flex justify-content-between align-items-center">
+            <button class="btn btn-sm btn-outline-primary" (click)="addToCart(listing); $event.stopPropagation()" [disabled]="!currentUser()">В корзину</button>
+            <button class="btn btn-sm btn-link" (click)="selectListing(listing); $event.stopPropagation()">Подробнее</button>
+          </div>
         </div>
       </div>
     </div>
-  </section>
-</div>
+
+    <div class="detail-panel" *ngIf="selectedListing() as detail">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+              <p class="text-muted mb-1">{{ detail.category }}</p>
+              <h3 class="mb-1">{{ detail.title }}</h3>
+              <p class="mb-3 text-muted">{{ detail.description }}</p>
+              <div class="d-flex gap-3 flex-wrap">
+                <span class="pill">{{ detail.address }}</span>
+                <span class="pill">Прогноз доставки: {{ deliveryForecast(detail) }}</span>
+                <span class="pill">Стоимость доставки: {{ detail.deliveryCost | number:'1.0-0' }} ₽</span>
+              </div>
+            </div>
+            <div class="text-end">
+              <div class="fs-4 fw-bold">{{ detail.price | currency:'RUB':'symbol-narrow':'1.0-0' }}</div>
+              <button class="btn btn-primary mt-2" (click)="addToCart(detail)" [disabled]="!currentUser()">Добавить в корзину</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="sell" class="section">
+  <div class="container">
+    <div class="section-title d-flex justify-content-between align-items-center flex-wrap gap-3">
+      <div>
+        <h2>Создание объявления</h2>
+        <p class="text-muted mb-0">Поддерживаются картинки, самовывоз и собственная стоимость доставки.</p>
+      </div>
+      <div *ngIf="!currentUser()" class="text-muted">Войдите, чтобы публиковать.</div>
+    </div>
+    <div class="row g-4">
+      <div class="col-lg-5">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Название</label>
+                <input class="form-control" [(ngModel)]="newListing.title" [disabled]="!currentUser()" />
+              </div>
+              <div class="col-12">
+                <label class="form-label">Описание</label>
+                <textarea class="form-control" rows="3" [(ngModel)]="newListing.description" [disabled]="!currentUser()"></textarea>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Категория</label>
+                <select class="form-select" [(ngModel)]="newListing.category" [disabled]="!currentUser()">
+                  <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Цена (₽)</label>
+                <input class="form-control" type="number" [(ngModel)]="newListing.price" [disabled]="!currentUser()" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Адрес</label>
+                <input class="form-control" [(ngModel)]="newListing.address" [disabled]="!currentUser()" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Стоимость доставки</label>
+                <input class="form-control" type="number" [(ngModel)]="newListing.deliveryCost" [disabled]="!currentUser()" />
+              </div>
+              <div class="col-12 d-flex gap-3 flex-wrap">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" [(ngModel)]="newListing.allowDelivery" id="delivery" />
+                  <label class="form-check-label" for="delivery">Есть доставка</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" [(ngModel)]="newListing.pickupOnly" id="pickup" />
+                  <label class="form-check-label" for="pickup">Самовывоз</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" [(ngModel)]="newListing.hidden" id="hidden" />
+                  <label class="form-check-label" for="hidden">Скрыть объявление</label>
+                </div>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Фото</label>
+                <input class="form-control" type="file" (change)="handleImageUpload($event)" />
+              </div>
+            </div>
+            <button class="btn btn-primary w-100 mt-3" (click)="addListing()" [disabled]="!currentUser()">Опубликовать</button>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-7">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="mb-0">Мои объявления</h5>
+              <span class="text-muted small">{{ ownedListings().length }} записей</span>
+            </div>
+            <div class="table-responsive">
+              <table class="table align-middle">
+                <thead>
+                  <tr>
+                    <th>Название</th>
+                    <th>Цена</th>
+                    <th>Доставка</th>
+                    <th>Видимость</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let listing of ownedListings()">
+                    <td>{{ listing.title }}</td>
+                    <td>{{ listing.price | currency:'RUB':'symbol-narrow':'1.0-0' }}</td>
+                    <td>
+                      <span class="badge text-bg-success" *ngIf="listing.allowDelivery">Доставка</span>
+                      <span class="badge text-bg-secondary" *ngIf="listing.pickupOnly">Самовывоз</span>
+                    </td>
+                    <td>
+                      <span class="badge" [class.text-bg-secondary]="listing.hidden" [class.text-bg-success]="!listing.hidden">
+                        {{ listing.hidden ? 'Скрыто' : 'Опубликовано' }}
+                      </span>
+                    </td>
+                    <td class="text-end">
+                      <button class="btn btn-sm btn-outline-secondary" (click)="toggleListingVisibility(listing)">
+                        {{ listing.hidden ? 'Показать' : 'Скрыть' }}
+                      </button>
+                      <button class="btn btn-sm btn-outline-danger ms-2" (click)="deleteListing(listing.id)">Удалить</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="cart" class="section bg-light">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2 class="mb-0">Корзина</h2>
+      <span class="text-muted">Сумма: {{ cartTotal() | currency:'RUB':'symbol-narrow':'1.0-0' }}</span>
+    </div>
+    <div class="row g-4">
+      <div class="col-lg-8">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <div *ngIf="cart().length === 0" class="text-muted">Пока пусто. Добавьте товары из каталога.</div>
+            <div class="list-group" *ngIf="cart().length">
+              <div class="list-group-item" *ngFor="let item of cart()">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  <div>
+                    <div class="fw-semibold">{{ listingById(item.listingId)?.title }}</div>
+                    <div class="text-muted small">Количество: {{ item.quantity }}</div>
+                  </div>
+                  <div class="d-flex align-items-center gap-3">
+                    <span class="fw-bold">{{ (listingById(item.listingId)?.price || 0) * item.quantity | currency:'RUB':'symbol-narrow':'1.0-0' }}</span>
+                    <button class="btn btn-sm btn-outline-danger" (click)="removeFromCart(item.listingId)">Убрать</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <label class="form-label">Комментарий к заказу</label>
+            <textarea class="form-control" rows="3" [(ngModel)]="orderNote"></textarea>
+            <button class="btn btn-primary w-100 mt-3" (click)="placeOrder()" [disabled]="!currentUser() || cart().length === 0">Оформить заказ</button>
+            <p class="text-muted small mt-2">Статусы: создано → в работе → в доставке → завершено / отменено</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="orders" class="section">
+  <div class="container">
+    <div class="section-title">
+      <h2>Заказы</h2>
+      <p class="text-muted">История для пользователя, полный список для администратора.</p>
+    </div>
+    <div class="row g-4">
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <div *ngIf="userOrders().length === 0" class="text-muted">Заказов пока нет.</div>
+            <div class="table-responsive" *ngIf="userOrders().length">
+              <table class="table align-middle">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Товары</th>
+                    <th>Статус</th>
+                    <th>Дата</th>
+                    <th>Комментарий</th>
+                    <th *ngIf="currentUser()?.role === 'admin'">Действия</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let order of userOrders()">
+                    <td>#{{ order.id }}</td>
+                    <td>
+                      <div *ngFor="let item of order.items" class="small">
+                        {{ listingById(item.listingId)?.title }} — {{ item.quantity }} шт.
+                      </div>
+                    </td>
+                    <td><span class="pill">{{ order.status }}</span></td>
+                    <td>{{ order.createdAt | date:'short' }}</td>
+                    <td>{{ order.note || '—' }}</td>
+                    <td *ngIf="currentUser()?.role === 'admin'" class="text-end">
+                      <select class="form-select form-select-sm" [ngModel]="order.status" (ngModelChange)="updateOrderStatus(order.id, $event)">
+                        <option value="создано">создано</option>
+                        <option value="в работе">в работе</option>
+                        <option value="в доставке">в доставке</option>
+                        <option value="завершено">завершено</option>
+                        <option value="отменено">отменено</option>
+                      </select>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="admin" class="section bg-light" *ngIf="currentUser()?.role === 'admin'">
+  <div class="container">
+    <div class="section-title">
+      <h2>Админ-панель</h2>
+      <p class="text-muted">Управление пользователями и объявлениями.</p>
+    </div>
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <h5 class="mb-3">Пользователи</h5>
+            <div class="table-responsive">
+              <table class="table align-middle">
+                <thead>
+                  <tr>
+                    <th>Имя</th>
+                    <th>Email</th>
+                    <th>Роль</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let user of users()">
+                    <td>{{ user.name }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>
+                      <select class="form-select form-select-sm" [ngModel]="user.role" (ngModelChange)="setRole(user.id, $event)">
+                        <option value="user">user</option>
+                        <option value="admin">admin</option>
+                      </select>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <h5 class="mb-3">Объявления</h5>
+            <div class="list-group admin-list">
+              <div class="list-group-item d-flex justify-content-between align-items-start" *ngFor="let listing of listings()">
+                <div>
+                  <div class="fw-semibold">{{ listing.title }}</div>
+                  <div class="text-muted small">{{ listing.ownerId }} · {{ listing.category }}</div>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-sm btn-outline-secondary" (click)="toggleListingVisibility(listing)">
+                    {{ listing.hidden ? 'Показать' : 'Скрыть' }}
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger" (click)="deleteListing(listing.id)">Удалить</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
