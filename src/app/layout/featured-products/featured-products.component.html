@@ -1,0 +1,18 @@
+<section id="products" class="featured-products">
+  <div class="featured-products__header">
+    <p class="eyebrow">Featured</p>
+    <h2>Curated selections</h2>
+    <p class="featured-products__description">
+      Explore our most-loved releases while we wire up live data.
+    </p>
+  </div>
+  <div class="featured-products__grid">
+    <app-product-card
+      *ngFor="let product of products"
+      [name]="product.name"
+      [price]="product.price"
+      [description]="product.description"
+      [badge]="product.badge"
+    ></app-product-card>
+  </div>
+</section>

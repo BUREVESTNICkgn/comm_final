@@ -1,0 +1,18 @@
+<section class="product-detail">
+  <div class="product-detail__media" aria-hidden="true">
+    <div class="product-detail__shape"></div>
+  </div>
+  <div class="product-detail__body">
+    <p class="product-detail__eyebrow">Featured pick</p>
+    <h2>{{ title }}</h2>
+    <p class="product-detail__price">{{ price }}</p>
+    <p class="product-detail__description">{{ description }}</p>
+    <ul class="product-detail__highlights">
+      <li *ngFor="let item of highlights">{{ item }}</li>
+    </ul>
+    <div class="product-detail__actions">
+      <button type="button" class="primary">Add to cart</button>
+      <button type="button" class="ghost">Save for later</button>
+    </div>
+  </div>
+</section>
