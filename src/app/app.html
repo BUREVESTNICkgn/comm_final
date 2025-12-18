@@ -3,14 +3,14 @@
     <div class="d-flex align-items-center gap-2">
       <span class="brand">Computer Market</span>
       <span class="pill" [class.bg-success-subtle]="backendReady()" [class.bg-warning-subtle]="!backendReady()">
-        {{ backendReady() ? 'REST + MySQL' : 'Локальное хранилище' }}
+        {{ backendReady() ? 'Сервер подключен' : 'Локально' }}
       </span>
     </div>
     <div class="nav-links d-none d-md-flex">
       <a href="#catalog">Каталог</a>
-      <a href="#sell">Мои объявления</a>
-      <a href="#cart">Корзина</a>
-      <a href="#orders">Заказы</a>
+      <a href="#sell" *ngIf="currentUser()">Мои объявления</a>
+      <a href="#cart" *ngIf="currentUser()">Корзина</a>
+      <a href="#orders" *ngIf="currentUser()">Заказы</a>
       <a href="#admin" *ngIf="currentUser()?.role === 'admin'">Админ</a>
     </div>
     <div class="d-flex gap-2 align-items-center">
@@ -32,10 +32,7 @@
       <div class="col-lg-6">
         <p class="lead text-uppercase text-primary fw-semibold mb-2">Marketplace техники</p>
         <h1 class="fw-bold mb-3">Быстрое размещение и покупка компьютерных товаров</h1>
-        <p class="text-muted mb-4">
-          Работаем на стекe MEAN: Angular + Node/Express REST, MySQL или in-memory запасной режим. Функции
-          доставки, самовывоза и управление заказами доступны из одного окна.
-        </p>
+        <p class="text-muted mb-4">Простые формы, быстрый поиск и удобные карточки товаров с доставкой или самовывозом.</p>
         <div class="d-flex gap-3 flex-wrap">
           <a class="btn btn-primary" href="#catalog">Открыть каталог</a>
           <a class="btn btn-outline-primary" href="#sell" *ngIf="currentUser()">Разместить объявление</a>
@@ -80,8 +77,8 @@
 <section id="auth" class="section">
   <div class="container">
     <div class="section-title">
-      <h2>Быстрая регистрация и вход</h2>
-      <p class="text-muted">Регистрация открывает корзину, оформление заказов и создание объявлений.</p>
+      <h2>Аккаунт</h2>
+      <p class="text-muted">Авторизуйтесь, чтобы публиковать объявления, добавлять товары в корзину и оформлять заказы.</p>
     </div>
     <div class="row g-4">
       <div class="col-lg-6">
@@ -190,10 +187,11 @@
       </div>
       <div *ngIf="!currentUser()" class="text-muted">Войдите, чтобы публиковать.</div>
     </div>
-    <div class="row g-4">
-      <div class="col-lg-5">
-        <div class="card shadow-sm h-100">
-          <div class="card-body">
+    <ng-container *ngIf="currentUser(); else sellLogin">
+      <div class="row g-4">
+        <div class="col-lg-5">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
             <div class="row g-3">
               <div class="col-12">
                 <label class="form-label">Название</label>
@@ -288,7 +286,13 @@
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </ng-container>
+    <ng-template #sellLogin>
+      <div class="card shadow-sm">
+        <div class="card-body text-muted">Создавать объявления могут только авторизованные пользователи.</div>
+      </div>
+    </ng-template>
   </div>
 </section>
 
@@ -298,39 +302,46 @@
       <h2 class="mb-0">Корзина</h2>
       <span class="text-muted">Сумма: {{ cartTotal() | currency:'RUB':'symbol-narrow':'1.0-0' }}</span>
     </div>
-    <div class="row g-4">
-      <div class="col-lg-8">
-        <div class="card shadow-sm">
-          <div class="card-body">
-            <div *ngIf="cart().length === 0" class="text-muted">Пока пусто. Добавьте товары из каталога.</div>
-            <div class="list-group" *ngIf="cart().length">
-              <div class="list-group-item" *ngFor="let item of cart()">
-                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                  <div>
-                    <div class="fw-semibold">{{ listingById(item.listingId)?.title }}</div>
-                    <div class="text-muted small">Количество: {{ item.quantity }}</div>
-                  </div>
-                  <div class="d-flex align-items-center gap-3">
-                    <span class="fw-bold">{{ (listingById(item.listingId)?.price || 0) * item.quantity | currency:'RUB':'symbol-narrow':'1.0-0' }}</span>
-                    <button class="btn btn-sm btn-outline-danger" (click)="removeFromCart(item.listingId)">Убрать</button>
+    <ng-container *ngIf="currentUser(); else cartLogin">
+      <div class="row g-4">
+        <div class="col-lg-8">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div *ngIf="cart().length === 0" class="text-muted">Пока пусто. Добавьте товары из каталога.</div>
+              <div class="list-group" *ngIf="cart().length">
+                <div class="list-group-item" *ngFor="let item of cart()">
+                  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                      <div class="fw-semibold">{{ listingById(item.listingId)?.title }}</div>
+                      <div class="text-muted small">Количество: {{ item.quantity }}</div>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                      <span class="fw-bold">{{ (listingById(item.listingId)?.price || 0) * item.quantity | currency:'RUB':'symbol-narrow':'1.0-0' }}</span>
+                      <button class="btn btn-sm btn-outline-danger" (click)="removeFromCart(item.listingId)">Убрать</button>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="col-lg-4">
-        <div class="card shadow-sm h-100">
-          <div class="card-body">
-            <label class="form-label">Комментарий к заказу</label>
-            <textarea class="form-control" rows="3" [(ngModel)]="orderNote"></textarea>
-            <button class="btn btn-primary w-100 mt-3" (click)="placeOrder()" [disabled]="!currentUser() || cart().length === 0">Оформить заказ</button>
-            <p class="text-muted small mt-2">Статусы: создано → в работе → в доставке → завершено / отменено</p>
+        <div class="col-lg-4">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <label class="form-label">Комментарий к заказу</label>
+              <textarea class="form-control" rows="3" [(ngModel)]="orderNote"></textarea>
+              <button class="btn btn-primary w-100 mt-3" (click)="placeOrder()" [disabled]="!currentUser() || cart().length === 0">Оформить заказ</button>
+              <p class="text-muted small mt-2">Статусы: создано → в работе → в доставке → завершено / отменено</p>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </ng-container>
+    <ng-template #cartLogin>
+      <div class="card shadow-sm">
+        <div class="card-body text-muted">Корзина и оформление доступны после входа.</div>
+      </div>
+    </ng-template>
   </div>
 </section>
 
@@ -340,51 +351,58 @@
       <h2>Заказы</h2>
       <p class="text-muted">История для пользователя, полный список для администратора.</p>
     </div>
-    <div class="row g-4">
-      <div class="col-12">
-        <div class="card shadow-sm">
-          <div class="card-body">
-            <div *ngIf="userOrders().length === 0" class="text-muted">Заказов пока нет.</div>
-            <div class="table-responsive" *ngIf="userOrders().length">
-              <table class="table align-middle">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Товары</th>
-                    <th>Статус</th>
-                    <th>Дата</th>
-                    <th>Комментарий</th>
-                    <th *ngIf="currentUser()?.role === 'admin'">Действия</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let order of userOrders()">
-                    <td>#{{ order.id }}</td>
-                    <td>
-                      <div *ngFor="let item of order.items" class="small">
-                        {{ listingById(item.listingId)?.title }} — {{ item.quantity }} шт.
-                      </div>
-                    </td>
-                    <td><span class="pill">{{ order.status }}</span></td>
-                    <td>{{ order.createdAt | date:'short' }}</td>
-                    <td>{{ order.note || '—' }}</td>
-                    <td *ngIf="currentUser()?.role === 'admin'" class="text-end">
-                      <select class="form-select form-select-sm" [ngModel]="order.status" (ngModelChange)="updateOrderStatus(order.id, $event)">
-                        <option value="создано">создано</option>
-                        <option value="в работе">в работе</option>
-                        <option value="в доставке">в доставке</option>
-                        <option value="завершено">завершено</option>
-                        <option value="отменено">отменено</option>
-                      </select>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+    <ng-container *ngIf="currentUser(); else ordersLogin">
+      <div class="row g-4">
+        <div class="col-12">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div *ngIf="userOrders().length === 0" class="text-muted">Заказов пока нет.</div>
+              <div class="table-responsive" *ngIf="userOrders().length">
+                <table class="table align-middle">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Товары</th>
+                      <th>Статус</th>
+                      <th>Дата</th>
+                      <th>Комментарий</th>
+                      <th *ngIf="currentUser()?.role === 'admin'">Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let order of userOrders()">
+                      <td>#{{ order.id }}</td>
+                      <td>
+                        <div *ngFor="let item of order.items" class="small">
+                          {{ listingById(item.listingId)?.title }} — {{ item.quantity }} шт.
+                        </div>
+                      </td>
+                      <td><span class="pill">{{ order.status }}</span></td>
+                      <td>{{ order.createdAt | date:'short' }}</td>
+                      <td>{{ order.note || '—' }}</td>
+                      <td *ngIf="currentUser()?.role === 'admin'" class="text-end">
+                        <select class="form-select form-select-sm" [ngModel]="order.status" (ngModelChange)="updateOrderStatus(order.id, $event)">
+                          <option value="создано">создано</option>
+                          <option value="в работе">в работе</option>
+                          <option value="в доставке">в доставке</option>
+                          <option value="завершено">завершено</option>
+                          <option value="отменено">отменено</option>
+                        </select>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </ng-container>
+    <ng-template #ordersLogin>
+      <div class="card shadow-sm">
+        <div class="card-body text-muted">История заказов появится после авторизации.</div>
+      </div>
+    </ng-template>
   </div>
 </section>
 

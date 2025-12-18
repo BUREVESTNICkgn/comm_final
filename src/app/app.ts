@@ -77,7 +77,7 @@ export class App {
   protected selectedListing = signal<Listing | null>(null);
   protected backendReady = signal(false);
   protected bannerMessage = signal(
-    'Локальное хранилище активно. Для синхронизации с MySQL поднимите Node API.'
+    'Данные сохраняются локально. При запуске серверной части они синхронизируются автоматически.'
   );
 
   protected authForm = { email: '', password: '', name: '' };
