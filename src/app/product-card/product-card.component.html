@@ -1,0 +1,14 @@
+<article class="product-card">
+  <div class="product-card__media">
+    <div class="product-card__placeholder" role="presentation"></div>
+    <span *ngIf="badge" class="product-card__badge">{{ badge }}</span>
+  </div>
+  <div class="product-card__body">
+    <div class="product-card__row">
+      <h3>{{ name }}</h3>
+      <span class="product-card__price">{{ price }}</span>
+    </div>
+    <p class="product-card__description">{{ description }}</p>
+    <button type="button" class="product-card__action">View details</button>
+  </div>
+</article>

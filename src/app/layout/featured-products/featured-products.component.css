@@ -1,0 +1,28 @@
+.featured-products {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.featured-products__header h2 {
+  margin: 0.25rem 0;
+}
+
+.featured-products__description {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.featured-products__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+}
