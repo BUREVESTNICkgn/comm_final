@@ -1,0 +1,26 @@
+.section + .section {
+  border-top: 1px solid #e5e7eb;
+}
+
+.detail-panel .pill {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.list-group-item {
+  border-color: #e5e7eb;
+}
+
+.card-footer {
+  background: transparent;
+}
+
+#auth .card,
+#catalog .card,
+#sell .card,
+#cart .card,
+#orders .card,
+#admin .card {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+}
